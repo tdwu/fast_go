@@ -26,6 +26,8 @@ var wrapper = flag.String("w", "1", "是否包装一层(内置封装)")
 // go get -u github.com/thinkhp/swag/cmd/swag
 // go get -u github.com/tdwu/swag/cmd/swag
 // go install gr.go
+// go install fast_wgen/gr.go
+// go build -o gr.exe  fast_wgen/gr.go
 // -g D:\ws_go\go_tpl\src\sys\SysApplication.go --ot json  -o D:\ws_go\go_tpl\static\doc\json
 func main() {
 	flag.Parse()

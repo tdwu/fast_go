@@ -124,3 +124,7 @@ func LogDebug(format string, a ...interface{}) {
 func LogError(format string, a ...interface{}) {
 	Logger.Error(fmt.Sprintf(format, a...))
 }
+
+func LogWarn(format string, a ...interface{}) {
+	Logger.Warn(fmt.Sprintf(format, a...))
+}

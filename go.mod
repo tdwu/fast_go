@@ -2,8 +2,6 @@ module github.com/tdwu/fast_go
 
 go 1.19
 
-replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
-
 require (
 	github.com/allegro/bigcache v1.2.1
 	github.com/gin-gonic/gin v1.9.0

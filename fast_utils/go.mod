@@ -1,4 +1,4 @@
-module github.com/tdwu/fast_go/fast_utils
+module fast_utils
 
 go 1.19
 

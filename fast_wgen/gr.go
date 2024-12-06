@@ -95,7 +95,7 @@ func MakeRouter(searchDirs []string, outputFile string, w string) {
 
 	// 生成limit代码
 	for _, limit := range limits {
-		body = body + fmt.Sprintf("\t%s := github.com/tdwu/fast_go/fast_web.RateLimitMiddleware(%s, %s)\n", limit.Name, limit.Num, limit.Cap)
+		body = body + fmt.Sprintf("\t%s :=fast_web.RateLimitMiddleware(%s, %s)\n", limit.Name, limit.Num, limit.Cap)
 	}
 
 	// 生成路由，其中自动添加limit中间件
@@ -110,7 +110,7 @@ func MakeRouter(searchDirs []string, outputFile string, w string) {
 		if len(r.Limit.Name) > 0 {
 			limit = r.Limit.Name + ", "
 		} else if len(r.Limit.Num) > 0 && len(r.Limit.Cap) > 0 {
-			limit = fmt.Sprintf("github.com/tdwu/fast_go/fast_web.RateLimitMiddleware(%s, %s), ", r.Limit.Num, r.Limit.Cap)
+			limit = fmt.Sprintf("fast_web.RateLimitMiddleware(%s, %s), ", r.Limit.Num, r.Limit.Cap)
 		}
 
 		if len(r.Receiver) == 0 {

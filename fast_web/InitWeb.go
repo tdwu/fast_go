@@ -2,11 +2,11 @@ package fast_web
 
 import (
 	"context"
+	"fast_base"
+	"fast_web/web/proxy"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/tdwu/fast_go/fast_base"
-	"github.com/tdwu/fast_go/fast_web/web/proxy"
 	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"

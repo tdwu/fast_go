@@ -3,10 +3,10 @@ package fast_web
 import (
 	"bytes"
 	"errors"
+	"fast_base"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/tdwu/fast_go/fast_base"
 	"go.uber.org/zap/zapcore"
 	"net"
 	"net/http"

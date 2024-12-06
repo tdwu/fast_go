@@ -1,4 +1,4 @@
-module github.com/tdwu/fast_wgen
+module github.com/tdwu/fast_go/fast_wgen
 
 go 1.19
 

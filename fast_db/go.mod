@@ -1,4 +1,4 @@
-module github.com/tdwu/fast_db
+module github.com/tdwu/fast_go/fast_db
 
 go 1.19
 

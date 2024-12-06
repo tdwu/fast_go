@@ -1,4 +1,4 @@
-module github.com/tdwu/fast_web
+module github.com/tdwu/fast_go/fast_web
 
 go 1.19
 

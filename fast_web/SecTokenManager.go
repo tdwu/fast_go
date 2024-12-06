@@ -1,9 +1,9 @@
 package fast_web
 
 import (
-	"fast_base"
-	"fast_utils"
 	"github.com/allegro/bigcache"
+	"github.com/tdwu/fast_go/fast_base"
+	"github.com/tdwu/fast_go/fast_utils"
 	"os"
 	"strconv"
 	"strings"

@@ -1,8 +1,8 @@
 package fast_web
 
 import (
-	"fast_web/web"
 	"github.com/gin-gonic/gin"
+	"github.com/tdwu/fast_go/fast_web/web"
 	"net/http"
 	"path"
 	"reflect"

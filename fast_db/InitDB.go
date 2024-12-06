@@ -3,8 +3,8 @@ package fast_db
 import (
 	"context"
 	"errors"
-	"fast_base"
 	"fmt"
+	"github.com/tdwu/fast_go/fast_base"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

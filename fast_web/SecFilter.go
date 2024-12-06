@@ -1,8 +1,8 @@
 package fast_web
 
 import (
-	"fast_base"
 	"github.com/gin-gonic/gin"
+	"github.com/tdwu/fast_go/fast_base"
 	"golang.org/x/time/rate"
 	"net/http"
 	"strings"

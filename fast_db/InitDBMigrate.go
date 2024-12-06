@@ -2,11 +2,11 @@ package fast_db
 
 import (
 	"database/sql"
-	"fast_base"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/tdwu/fast_go/fast_base"
 )
 
 func migrateDB() {

@@ -1,8 +1,8 @@
 package fast_db
 
 import (
-	"fast_base"
 	"fmt"
+	"github.com/tdwu/fast_go/fast_base"
 	"gorm.io/gorm"
 	"strings"
 )

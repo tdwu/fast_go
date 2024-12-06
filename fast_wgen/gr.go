@@ -1,4 +1,4 @@
-package fast_wgen
+package main
 
 import (
 	"container/list"

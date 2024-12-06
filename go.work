@@ -1,0 +1,9 @@
+go 1.19
+
+use (
+	fast_base
+	fast_db
+	fast_utils
+	fast_web
+	fast_wgen
+)

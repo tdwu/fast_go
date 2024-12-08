@@ -6,11 +6,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Logger 日志
 var Logger *zap.Logger
 var LoggerLevel zapcore.Level
 
+// ConfigAll 存储所有配置
 var ConfigAll *viper.Viper
+
+// ConfigLog 日志相关配置
 var ConfigLog = LogConfig{Level: "info", Format: "", Path: ExecPath() + "/logs/", FileName: "bill.log", FileMaxSize: 10, FileMaxBackups: 100, MaxAge: 30, Compress: true, Stdout: true, Color: true}
+
+// ConfigEnv 多环境先关配置
 var ConfigEnv = EnvConfig{Env: "dev", Name: "tpl"}
 
 type LogConfig struct {

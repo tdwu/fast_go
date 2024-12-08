@@ -38,6 +38,8 @@ func (t ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%s", t.Host, t.Port)
 }
 
+// ApiGroup
+// Deprecated 统一换成使用gr生成
 type ApiGroup struct {
 	Parent string
 }

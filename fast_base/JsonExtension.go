@@ -159,9 +159,9 @@ func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 				case jsoniter.NumberValue:
 					// 直接读取数字并存储为 int64
 					*(*int64)(ptr) = iter.ReadInt64()
-				case jsoniter.InvalidValue:
-					// 忽略掉
 				default:
+					var v int64
+					*(*int64)(ptr) = v
 					// 忽略掉
 					//	iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
 				}
@@ -187,9 +187,9 @@ func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 				case jsoniter.NumberValue:
 					// 直接读取数字并存储为 float64
 					*(*float64)(ptr) = iter.ReadFloat64()
-				case jsoniter.InvalidValue:
-					// 忽略掉
 				default:
+					var v float64
+					*(*float64)(ptr) = v
 					// 忽略掉
 					//	iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
 				}

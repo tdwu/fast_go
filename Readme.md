@@ -1,66 +1,28 @@
-# 创建路由
+# 1 简介
 
-~~~
-# 需要先安装gr
-D:\ws_web\psp\backend\src\psp> gr
-
-~~~
+基于Gin+Gorm封装的开发快速开发框架
 
 
 
-# 创建swagger.json
-
-~~~shell
-D:\ws_web\psp\backend\src\psp> swag init -d ./ -g ./PspApplication.go --ot json  -o ./bin/web/ui/swagger/json
-~~~
+由于长期从事JAVA开发，特别是在大家习惯spring和生态体系后。开发过程中发现go的生态领域相对来说比较薄弱，特别缺少统治级别的开源库。各个层面都有第三方库，各有特色。所以不得不面对选择什么组件或不得不造轮子或自己封装的情况。
 
 
 
-# idea中启动
-
- ![image-20241028201233260](http://pic7.wtding.com/PicGo/MarkDown/202410282012306.png)
+#  2 功能介绍
 
 
 
-# docker打包启动
-
-~~~dockerfile
- # Compile stage
-FROM golang:1.19.7 AS build-env
-
-ENV GO111MODULE=on \
-    CGO_ENABLE=0 \
-    GOOS=linux \
-    GOARCH=amd64 \
-    GOPROXY="https://goproxy.cn,direct"
 
 
-#ADD . /go_ws/
-ADD ./go.work /go_ws/
-# 目录
-ADD ./src/core /go_ws/src/core
-ADD ./src/psp /go_ws/src/psp
+# 3 安装使用
 
-WORKDIR /go_ws/src/psp
+## 3.1 安装
 
-RUN go build -o psp_server PspApplication.go LoadRouter.go
-
-# Final stage
-FROM debian:buster
-
-EXPOSE 38000
-
-WORKDIR /go_run
-COPY --from=build-env /go_ws/src/psp/psp_server /go_run/
-COPY --from=build-env /go_ws/src/psp/bin/conf /go_run/conf
-COPY --from=build-env /go_ws/src/psp/bin/web /go_run/web
-
-
-CMD ["/go_run/psp_server","--env=docker"]
+~~~ sh
+go get github.com/tdwu/fast_go
 ~~~
 
+## 3.2 使用
 
 
->  注意设置参数：-v /opt/psp/files:/go_run/files -v /opt/psp/cache:/go_run/cache -p 38000:38000 -e TZ=Asia/Shanghai
 
- ![image-20241028204524840](http://pic7.wtding.com/PicGo/MarkDown/202410282045874.png)

@@ -145,6 +145,11 @@ func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 				case jsoniter.StringValue: // 目标是int。如果是字符串，也能转换。
 					// 读取字符串并转换为 int64
 					strVal := iter.ReadString()
+
+					if strVal == "" {
+						return
+					}
+
 					intVal, err := strconv.ParseInt(strVal, 10, 64)
 					if err != nil {
 						iter.ReportError("NumericCompatibleDecoder", "invalid int format")
@@ -167,6 +172,10 @@ func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 					// 读取字符串并转换为 float64
 					strVal := iter.ReadString()
 					floatVal, err := strconv.ParseFloat(strVal, 64)
+					if strVal == "" {
+						return
+					}
+
 					if err != nil {
 						iter.ReportError("NumericCompatibleDecoder", "invalid float format")
 						return

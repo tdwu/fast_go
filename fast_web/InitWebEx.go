@@ -3,10 +3,10 @@ package fast_web
 import (
 	"bytes"
 	"errors"
-	"fast_base"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/tdwu/fast_go/fast_base"
 	"go.uber.org/zap/zapcore"
 	"net"
 	"net/http"
@@ -151,7 +151,7 @@ func formatMessage(param gin.LogFormatterParams) string {
 func ginRecovery() gin.HandlerFunc {
 	return customRecover(func(c *gin.Context, err any) {
 		//	c.AbortWithStatus(http.StatusInternalServerError)
-		c.JSON(http.StatusBadRequest, fast_base.Error(501, "未知错误", err))
+		c.JSON(http.StatusBadRequest, fast_base.Error(501, "未知错误"))
 	})
 }
 
@@ -291,10 +291,10 @@ func timeFormat(t time.Time) string {
 	return t.Format("2006/01/02 - 15:04:05")
 }
 
-// 创建 jsoniter 配置
+// json 创建 jsoniter 配置
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-// 定义 jsoniter 的渲染器
+// JSONIterRenderer 定义 jsoniter 的渲染器
 type JSONIterRenderer struct {
 	Data any
 }
@@ -312,7 +312,7 @@ func (r JSONIterRenderer) WriteContentType(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 }
 
-// JSON 输出方法，使用 jsoniter 渲染
+// JSONIter JSON 输出方法，使用 jsoniter 渲染
 func JSONIter(c *gin.Context, code int, obj any) {
 	c.Render(code, JSONIterRenderer{Data: obj})
 }

@@ -1,8 +1,8 @@
 package fast_db
 
 import (
-	"fast_base"
 	"fmt"
+	"github.com/tdwu/fast_go/fast_base"
 	"gorm.io/gorm"
 	"strings"
 )
@@ -50,7 +50,7 @@ func QueryPageListBySql[T any](param fast_base.PageParam, sql string, params ...
 
 	// 查询总数
 	var count int64
-	countSQL := "SELECT COUNT(*) FROM (" + RemoveOrderBy(sql) + ") AS total_count"
+	countSQL := "SELECT COUNT(*) FROM (" + removeOrderBy(sql) + ") AS total_count"
 	err = db.Raw(countSQL, params...).Scan(&count).Error
 	if err != nil {
 		return nil, err
@@ -75,15 +75,6 @@ func GetListBySql[T any](sql string, params ...interface{}) (*[]T, error) {
 	// 查询总数
 
 	return &results, nil
-}
-
-func RemoveOrderBy(sql string) string {
-	// 找到 ORDER BY 子句并去除
-	orderByIndex := strings.Index(strings.ToUpper(sql), "ORDER BY")
-	if orderByIndex != -1 {
-		return sql[:orderByIndex]
-	}
-	return sql
 }
 
 func GetById[T any](id interface{}) *T {
@@ -119,5 +110,13 @@ func CountNum(sql string, params ...interface{}) int {
 	var count int64
 	DB.Raw(sql, params...).Count(&count)
 	return int(count)
+}
 
+func removeOrderBy(sql string) string {
+	// 找到 ORDER BY 子句并去除
+	orderByIndex := strings.Index(strings.ToUpper(sql), "ORDER BY")
+	if orderByIndex != -1 {
+		return sql[:orderByIndex]
+	}
+	return sql
 }

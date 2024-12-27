@@ -9,6 +9,14 @@ import (
 	"unsafe"
 )
 
+/**
+使用jsoniter增强json序列化和反序列化的能力
+1 序列化时根据数据字典，自动将编码value转成字面值用于前端显示。自动新增字段名称，不影响原有值
+2 序列化int64时，自动转成string。解决前端js精度问题。
+3 序列化时，根据id关联出从表的字段。
+4 反序列化时，处理带引号的数值类型（严格说string）无法转换成数值问题问题。如"1"无法转换成int。
+
+*/
 // 创建配置
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
@@ -27,10 +35,11 @@ func (d *DictCodec) IsEmpty(ptr unsafe.Pointer) bool {
 	return false
 }
 
+// Encode 序列化时的增强代码（数据字典）
 func (d *DictCodec) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 
 	if d.filedName != "" {
-		d.originalEncoder.Encode(ptr, stream) // 序列化原始 Sex 值
+		d.originalEncoder.Encode(ptr, stream) // 序列化原始值
 		stream.WriteMore()                    // 添加逗号
 		stream.WriteObjectField(d.filedName)  // 输出补充的字段名
 	}
@@ -48,11 +57,7 @@ func (d *DictCodec) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	}
 }
 
-// QueryBySql 2 SQL查询转换
-type QueryBySql func(sql string, p ...interface{}) string
-
-var DictQueryBySql QueryBySql
-
+// DictSqlCodec 2 sql增强
 type DictSqlCodec struct {
 	originalEncoder jsoniter.ValEncoder
 	filedName       string
@@ -60,11 +65,18 @@ type DictSqlCodec struct {
 	getValue        GetOriginalValue
 }
 
+// QueryBySql 2 SQL查询转换
+type QueryBySql func(sql string, p ...interface{}) string
+
+// DictQueryBySql 注：由DB模块去实现, 包括缓存
+var DictQueryBySql QueryBySql
+
 func (d *DictSqlCodec) IsEmpty(ptr unsafe.Pointer) bool {
 	// 一致不为空
 	return false
 }
 
+// Encode 序列化时的增强代码（SQL）
 func (d *DictSqlCodec) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 
 	d.originalEncoder.Encode(ptr, stream) // 序列化原始 Sex 值
@@ -86,13 +98,13 @@ func (d *DictSqlCodec) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 
 }
 
-// DictionaryExtension 3 字典映射扩展被注册到 jsoniter
-type DictionaryExtension struct {
+// JsonExtension 3 扩展器
+type JsonExtension struct {
 	jsoniter.DummyExtension
 }
 
 // CreateEncoder 序列化
-func (ext *DictionaryExtension) CreateEncoder(typ reflect2.Type) jsoniter.ValEncoder {
+func (ext *JsonExtension) CreateEncoder(typ reflect2.Type) jsoniter.ValEncoder {
 	if typ.Kind() == reflect.Int64 {
 		return &GlobalWrapCodec{
 			encodeFunc: func(ptr unsafe.Pointer, stream *jsoniter.Stream) {
@@ -106,7 +118,7 @@ func (ext *DictionaryExtension) CreateEncoder(typ reflect2.Type) jsoniter.ValEnc
 }
 
 // CreateDecoder 反序列化
-func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
+func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 	switch typ.Kind() {
 	case reflect.String: // 目标类型，如果是字符串。输入数字也能转换成功
 		return &GlobalWrapCodec{
@@ -121,8 +133,7 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 					// 如果是字符串，直接读取
 					*(*string)(ptr) = iter.ReadString()
 				default:
-					// 如果是其他类型，报错
-					iter.ReportError("StringCompatibleDecoder", "Cannot decode to string")
+					iter.Read()
 				}
 			},
 		}
@@ -133,6 +144,11 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 				case jsoniter.StringValue: // 目标是int。如果是字符串，也能转换。
 					// 读取字符串并转换为 int64
 					strVal := iter.ReadString()
+
+					if strVal == "" {
+						return
+					}
+
 					intVal, err := strconv.ParseInt(strVal, 10, 64)
 					if err != nil {
 						iter.ReportError("NumericCompatibleDecoder", "invalid int format")
@@ -143,7 +159,8 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 					// 直接读取数字并存储为 int64
 					*(*int64)(ptr) = iter.ReadInt64()
 				default:
-					iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
+					iter.Read()
+
 				}
 			},
 		}
@@ -155,6 +172,10 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 					// 读取字符串并转换为 float64
 					strVal := iter.ReadString()
 					floatVal, err := strconv.ParseFloat(strVal, 64)
+					if strVal == "" {
+						return
+					}
+
 					if err != nil {
 						iter.ReportError("NumericCompatibleDecoder", "invalid float format")
 						return
@@ -164,7 +185,11 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 					// 直接读取数字并存储为 float64
 					*(*float64)(ptr) = iter.ReadFloat64()
 				default:
-					iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
+					var v float64
+					*(*float64)(ptr) = v
+
+					// 忽略掉
+					//	iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
 				}
 			},
 		}
@@ -174,8 +199,8 @@ func (ext *DictionaryExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDec
 	return nil
 }
 
-// UpdateStructDescriptor 实现字典转换
-func (ext *DictionaryExtension) UpdateStructDescriptor(structDescriptor *jsoniter.StructDescriptor) {
+// UpdateStructDescriptor 根据注解中的描述符，启用对应的Codec
+func (ext *JsonExtension) UpdateStructDescriptor(structDescriptor *jsoniter.StructDescriptor) {
 	for _, binding := range structDescriptor.Fields {
 		// 查找含有 "jsonDict" 标签的字段
 		if dictTag := binding.Field.Tag().Get("jsonDict"); dictTag != "" {
@@ -266,6 +291,7 @@ func getValueMethod(binding *jsoniter.Binding) GetOriginalValue {
 	}
 }
 
+// GlobalWrapCodec 通用wrap
 type GlobalWrapCodec struct {
 	encodeFunc  func(ptr unsafe.Pointer, stream *jsoniter.Stream)
 	isEmptyFunc func(ptr unsafe.Pointer) bool
@@ -286,6 +312,8 @@ func (codec *GlobalWrapCodec) IsEmpty(ptr unsafe.Pointer) bool {
 func (codec *GlobalWrapCodec) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	codec.decodeFunc(ptr, iter)
 }
+
+/*
 
 // MarshalJSON 实现 MarshalJSON 方法，将 int64 转换为字符串(废弃了)
 func (i StringInt64) MarshalJSON() ([]byte, error) {
@@ -310,3 +338,4 @@ func (i *StringInt64) UnmarshalJSON(data []byte) error {
 	*i = StringInt64(parsed)
 	return nil
 }
+*/

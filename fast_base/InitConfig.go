@@ -43,7 +43,9 @@ func LoadConfig() (err error) {
 	}
 
 	ConfigAll = allInOne
-	jsoniter.RegisterExtension(&DictionaryExtension{})
+
+	// 设置json扩展器
+	jsoniter.RegisterExtension(&JsonExtension{})
 	return
 }
 

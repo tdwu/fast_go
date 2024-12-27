@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fast_base"
+	"github.com/tdwu/fast_go/fast_base"
 	"io"
 	"math/big"
 	"net"

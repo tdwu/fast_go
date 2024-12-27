@@ -2,11 +2,11 @@ package fast_web
 
 import (
 	"context"
-	"fast_base"
-	"fast_web/web/proxy"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/tdwu/fast_go/fast_base"
+	"github.com/tdwu/fast_go/fast_web/web/proxy"
 	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
@@ -60,12 +60,14 @@ func LoadWeb() *Server {
 
 	Container = new(Server)
 	Container.Gin = gin.New()
+
 	// 日志中间件
 	Container.Gin.Use(ginLogger(), ginRecovery())
 
 	// 跨域配置
 	allowCross := fast_base.ConfigAll.GetBool("server.cross.allow")
 	if allowCross == true {
+		// 允许跨域
 		Container.Gin.Use(CORSMiddleware())
 	}
 
@@ -96,7 +98,7 @@ func LoadWeb() *Server {
 
 	Container.Gin.GET("shutdown", func(context *gin.Context) {
 		fast_base.Logger.Warn("收到指令关闭")
-		JSONIter(context, http.StatusForbidden, fast_base.SuccessNoData("预计2S后完成,关闭中....."))
+		JSONIter(context, http.StatusForbidden, fast_base.Success("预计2S后完成,关闭中....."))
 		context.Abort()
 		go func() {
 			time.Sleep(time.Second * 2)
@@ -127,6 +129,8 @@ func (c *Server) Stop() *Server {
 	return c
 }
 
+// LoadRouter 加载ApiGroup下的API
+// Deprecated 统一换成使用gr生成
 func (c *Server) LoadRouter(cg interface{}) *Server {
 	engine := Container.Gin
 	value := reflect.ValueOf(cg)
@@ -151,7 +155,7 @@ func (c *Server) LoadRouter(cg interface{}) *Server {
 			}
 		}
 
-		// http api path
+		// 为ApiGroup实现http api path，后面统一换成
 		path := tm.Name
 		parent := value.FieldByName("Parent")
 		if parent.IsValid() {
@@ -180,7 +184,8 @@ func (c *Server) LoadRouter(cg interface{}) *Server {
 }
 
 func GenHandlerFunc(vm reflect.Value) gin.HandlerFunc {
-	// 只有一个参数无返回值，并且是gin.Context的情况，说明是gin原型：func(*gin.Context), 不处理，预留给下载文件等使用
+	// 只有一个参数无返回值，并且是gin.Context的情况:
+	// 说明是gin原型：func(*gin.Context)则不处理.预留给下载文件等使用
 	if vm.Type().NumOut() == 0 && vm.Type().NumIn() == 1 && strings.HasSuffix(vm.Type().In(0).String(), "gin.Context") {
 		//p := vm.Interface().(gin.HandlerFunc) // 不能用vm.Interface().(gin.HandlerFunc)
 		p := vm.Interface().(func(*gin.Context))
@@ -194,69 +199,62 @@ func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		args := make([]reflect.Value, vm.Type().NumIn())
 		mCopy := true
+		// 【1】根据接口参数类型，封装处理参数+校验
 		for i := 0; i < vm.Type().NumIn(); i++ {
 			p := vm.Type().In(i)
 			if strings.HasSuffix(p.String(), "gin.Context") {
 				args[i] = reflect.ValueOf(context)
 			} else if p == reflect.TypeOf(SecToken{}) {
-
+				// 自动获取token对象，token由SecFilter提供
 				v, e := context.Get("AccessToken")
 				if e {
 					args[i] = reflect.ValueOf(v)
 				}
-			} else if p.Kind() == reflect.Struct {
-				// 结构体
-				data := reflect.New(p)
+			} else if p.Kind() == reflect.Struct || (p.Kind() == reflect.Pointer && p.Elem().Kind() == reflect.Struct) {
+				var data reflect.Value
 
+				// 【1】初始化结构体
+				if p.Kind() == reflect.Struct {
+					// 【结构体】,直接new
+					data = reflect.New(p)
+				} else {
+					// 【指针类型，并且是结构体的】,取得指针的【值类型】type，再做new操作
+					data = reflect.New(p.Elem())
+				}
+
+				// 【2】参数结构化
 				b := binding.Default(context.Request.Method, context.ContentType())
 				if binding.JSON == b {
+					// json格式，使用扩展json方式
 					if err := json.NewDecoder(context.Request.Body).Decode(data.Interface()); err != nil {
-						JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
+						JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
 						return
 					}
 				} else {
+					// 使用gin自带的，用于处理form
 					err := context.Bind(data.Interface())
 					if err != nil {
-						JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
+						JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
 						return
 					}
 				}
-				// 校验绑定后的参数
+
+				// 【3】校验绑定后的参数
 				if err := Validate.Struct(data.Interface()); err != nil {
 					msg, _ := GetErrorStr(data.Interface(), err)
-					JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, msg))
+					JSONIter(context, http.StatusOK, fast_base.Error(500, msg))
 					return
 				}
 
-				// ew出来的是指针，需要转值类型
-				args[i] = data.Elem()
-
-			} else if p.Kind() == reflect.Pointer && p.Elem().Kind() == reflect.Struct {
-				// 指针类型,取得指针的【值类型】type，再做new操作
-				data := reflect.New(p.Elem())
-				b := binding.Default(context.Request.Method, context.ContentType())
-				if binding.JSON == b {
-					if err := json.NewDecoder(context.Request.Body).Decode(data.Interface()); err != nil {
-						JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
-						return
-					}
+				// 【4】 结果处理
+				if p.Kind() == reflect.Struct {
+					// new出来的是指针，需要转值类型
+					args[i] = data.Elem()
 				} else {
-					err := context.Bind(data.Interface())
-					if err != nil {
-						JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
-						return
-					}
-
+					// new出来的是指针，参数也是指针。所以直接设置
+					args[i] = data
 				}
 
-				// 校验绑定后的参数
-				if err := Validate.Struct(data.Interface()); err != nil {
-					msg, _ := GetErrorStr(data.Interface(), err)
-					JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, msg))
-					return
-				}
-				// new出来的是指针，参数也是指针。所以直接设置
-				args[i] = data
 			} else if p.Kind() == reflect.String {
 				// go 反射无法获取参数名
 				pv := context.Param(p.Name())
@@ -264,70 +262,77 @@ func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
 			} else if mCopy && p.Kind() == reflect.Map {
 				// 创建目标 map 的实例
 				targetMap := reflect.MakeMap(p)
-				tempMap := make(map[string]interface{})
 
-				err := context.ShouldBindJSON(&tempMap)
-				if err != nil {
-					JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
-					return
-				}
-				// 将 tempMap 中的值放入 newMap
-				for key, value := range tempMap {
-					targetMap.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+				if mCopy {
+					v := make(map[string]interface{})
+
+					err := context.ShouldBindJSON(&v)
+					if err != nil {
+						JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
+						return
+					}
+					// 将 tempMap 中的值放入 newMap
+					for key, value := range v {
+						targetMap.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+					}
+
+					args[i] = targetMap
+
+				} else {
+					// 定义目标 map 类型，这里是 map[string]interface{}
+					// 将请求体中的 JSON 绑定到 map
+					v := targetMap.Interface()
+					err := context.ShouldBindJSON(&v)
+					if err != nil {
+						JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
+						return
+					}
+					args[i] = reflect.ValueOf(v)
 				}
 
-				args[i] = targetMap
-			} else if p.Kind() == reflect.Map {
-				// 定义目标 map 类型，这里是 map[string]interface{}
-				//targetMapType := reflect.TypeOf(map[string]string{})
-				// 创建目标 map 的实例
-				targetMap := reflect.MakeMap(p)
-				// 将请求体中的 JSON 绑定到 map
-				v := targetMap.Interface()
-				err := context.ShouldBindJSON(&v)
-				if err != nil {
-					JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
-					return
-				}
-				args[i] = reflect.ValueOf(v)
 			}
 		}
 
+		//【2】调用接口
 		re := vm.Call(args)
-		if vm.Type().NumOut() > 0 {
-			// 返回了参数，帮忙格式化成json
-			v := re[vm.Type().NumOut()-1]
-			r := vm.Type().Out(vm.Type().NumOut() - 1)
+
+		//【3】结果处理
+		if vm.Type().NumOut() == 0 {
+			// 无返回值，直接标记成功
+			JSONIter(context, http.StatusOK, fast_base.Success("成功"))
+		} else {
+			// 有返回值，识别数据和err
+			v := re[vm.Type().NumOut()-1]              // 取最后一个返回值，如果有err则放最后一个
+			r := vm.Type().Out(vm.Type().NumOut() - 1) // 取最后一个返回值类型
 			if r.String() == "error" {
 				if !v.IsNil() {
 					err := v.Interface().(error)
 					// 有错误信息，则抛返回错误
-					JSONIter(context, http.StatusOK, fast_base.ErrorNoData(500, err.Error()))
+					JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
 					return
 				} else if vm.Type().NumOut()-2 < 0 {
-					// 没得错误,也没得下一个参数，则直接返回成功
-					//JSONIter(context,http.StatusOK, gin.H{})
-					JSONIter(context, http.StatusOK, fast_base.SuccessNoData("成功"))
+					// 无err,并且前面也无返回值，则直接返回成功
+					JSONIter(context, http.StatusOK, fast_base.Success("成功"))
 					return
 				} else {
-					// 没得错误，则取出前面一个作为结果数据
+					// 无err,但前面有返回值，则取出前面一个作为结果数据
 					v = re[vm.Type().NumOut()-2]
 					r = vm.Type().Out(vm.Type().NumOut() - 2)
 				}
 			}
 
+			// 确定返回值后，封装成json
 			if !v.IsValid() {
-				JSONIter(context, http.StatusOK, fast_base.SuccessNoData("成功"))
-				//JSONIter(context,http.StatusOK, gin.H{})
-			} else { // re[0].Type()==reflect.TypeOf(fast_base.R{}) // re[0].Type()==reflect.TypeOf(fast_base.R{})
+				JSONIter(context, http.StatusOK, fast_base.Success("成功"))
+			} else {
 				if reflect.TypeOf(fast_base.R{}) == r {
+					// 如果返回就是r结构体，则直接返回
 					JSONIter(context, http.StatusOK, v.Interface())
 				} else {
-					JSONIter(context, http.StatusOK, fast_base.Success("成功", v.Interface()))
+					// 如果返回不是r结构体，则直接封装成R，保持统一返回结构
+					JSONIter(context, http.StatusOK, fast_base.Success("成功").SetData(v.Interface()))
 				}
 			}
-		} else {
-			JSONIter(context, http.StatusOK, fast_base.SuccessNoData("成功"))
 		}
 	}
 }

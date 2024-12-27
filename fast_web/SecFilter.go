@@ -1,19 +1,21 @@
 package fast_web
 
 import (
-	"fast_base"
 	"github.com/gin-gonic/gin"
+	"github.com/tdwu/fast_go/fast_base"
 	"golang.org/x/time/rate"
 	"net/http"
 	"strings"
 )
 
+// LoadLimit 限流
 func (c *Server) LoadLimit() *Server {
 	// 限流中间件，公共限流器，对所有接口都有效。
 	Container.Gin.Use(RateLimitMiddleware(100, 200))
 	return c
 }
 
+// LoadLimitByPassword 简单密码模式
 func (c *Server) LoadLimitByPassword(prefix ...string) *Server {
 	// 对API进行密码验证，适用于简单场景
 	Container.Gin.Use(func(context *gin.Context) {
@@ -23,7 +25,7 @@ func (c *Server) LoadLimitByPassword(prefix ...string) *Server {
 			if ctt == ptt {
 				context.Next()
 			} else {
-				JSONIter(context, http.StatusOK, fast_base.ErrorNoData(403, "请登录"))
+				JSONIter(context, http.StatusOK, fast_base.Error(403, "请登录"))
 				context.Abort()
 			}
 		} else {
@@ -34,6 +36,7 @@ func (c *Server) LoadLimitByPassword(prefix ...string) *Server {
 	return c
 }
 
+// LoadLimitByToken token模式
 func (c *Server) LoadLimitByToken(prefix ...string) *Server {
 	SecTokenController.Init()
 	// 对API进行密码验证，适用于简单场景
@@ -45,7 +48,7 @@ func (c *Server) LoadLimitByToken(prefix ...string) *Server {
 			accessToken := SecTokenController.GetAccessToken(accessTokenCode)
 			refreshToken := SecTokenController.GetAccessToken(refreshTokenCode)
 			if accessToken == nil || !accessToken.IsValid() || refreshToken == nil || !refreshToken.IsValid() {
-				JSONIter(context,http.StatusOK, fast_base.ErrorNoData(403, "token刷新失败"))
+				JSONIter(context,http.StatusOK, fast_base.Error(403, "token刷新失败"))
 				context.Abort()
 			}
 			newToken := SecTokenController.RefreshNewToken(*refreshToken, refreshToken.Data)
@@ -56,14 +59,14 @@ func (c *Server) LoadLimitByToken(prefix ...string) *Server {
 			AppKey := context.GetHeader("AppKey")
 			if accessTokenCode == "" {
 				// 没有提供token
-				JSONIter(context, http.StatusOK, fast_base.ErrorNoData(401, "请登录"))
+				JSONIter(context, http.StatusOK, fast_base.Error(401, "请登录"))
 				context.Abort()
 				return
 			}
 			accessToken := SecTokenController.GetAccessToken(AppKey, accessTokenCode)
 			if accessToken == nil {
 				// 根据code没获取到token
-				JSONIter(context, http.StatusOK, fast_base.ErrorNoData(402, "请重新登录"))
+				JSONIter(context, http.StatusOK, fast_base.Error(402, "请重新登录"))
 				context.Abort()
 			} else {
 				context.Set("AccessToken", *accessToken)
@@ -88,7 +91,7 @@ func RateLimitMiddleware(num int, cap int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fast_base.Logger.Info("[Limit]：" + c.Request.URL.String())
 		if !limit.Allow() {
-			c.JSON(http.StatusOK, fast_base.ErrorNoData(403, "无服务器繁忙，轻稍后再试"))
+			c.JSON(http.StatusOK, fast_base.Error(403, "无服务器繁忙，轻稍后再试"))
 			c.Abort()
 			return
 		}

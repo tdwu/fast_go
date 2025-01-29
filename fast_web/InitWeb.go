@@ -226,7 +226,7 @@ func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
 				b := binding.Default(context.Request.Method, context.ContentType())
 				if binding.JSON == b {
 					// json格式，使用扩展json方式
-					if err := json.NewDecoder(context.Request.Body).Decode(data.Interface()); err != nil {
+					if err := fast_base.Json.NewDecoder(context.Request.Body).Decode(data.Interface()); err != nil {
 						JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
 						return
 					}

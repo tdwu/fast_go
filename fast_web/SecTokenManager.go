@@ -45,7 +45,7 @@ func (t *SecTokenManager) saveCacheToFile() error {
 		items[entry.Key()] = entry.Value()
 	}
 
-	data, err := json.Marshal(items)
+	data, err := fast_base.Json.Marshal(items)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (t *SecTokenManager) loadFromFile() {
 	}
 
 	items := make(map[string][]byte)
-	if err := json.Unmarshal(data, &items); err != nil {
+	if err := fast_base.Json.Unmarshal(data, &items); err != nil {
 		return
 	}
 	for key, value := range items {
@@ -150,7 +150,7 @@ func (t *SecTokenManager) createToken(appKey string, userId int64, data string) 
 		CreateTime:   fast_utils.GetTimeStr(&n1),
 		ExpireTime:   fast_utils.GetTimeStr(&n2),
 	}
-	d, _ := json.Marshal(token)
+	d, _ := fast_base.Json.Marshal(token)
 	// 存储下来
 	t.cacheInstance.Set(appKey+"_"+"access_"+token.AccessToken, d)
 	t.cacheInstance.Set(appKey+"_"+"refresh_"+token.RefreshToken, d)
@@ -174,7 +174,7 @@ func (t *SecTokenManager) clearUserToken(appKey string, userId int64, mode int) 
 					n2 := time.Now().Add(time.Second * 10)
 					token.ExpireTime = fast_utils.GetTimeStr(&n2)
 					// 修改后，重新写回去
-					d, _ := json.Marshal(token)
+					d, _ := fast_base.Json.Marshal(token)
 					t.cacheInstance.Set(appKey+"_"+"access_"+token.AccessToken, d)
 				}
 			}
@@ -202,7 +202,7 @@ func (t *SecTokenManager) getToken(appKey string, prefix string, token string) *
 	if e == nil {
 		if d != nil {
 			token := SecToken{}
-			json.Unmarshal(d, &token)
+			fast_base.Json.Unmarshal(d, &token)
 			// 自动完成过期校验，如果过期了，则不返回。
 			if !token.IsValid() {
 				t.cacheInstance.Delete(key)

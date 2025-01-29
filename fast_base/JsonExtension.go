@@ -16,9 +16,13 @@ import (
 3 序列化时，根据id关联出从表的字段。
 4 反序列化时，处理带引号的数值类型（严格说string）无法转换成数值问题问题。如"1"无法转换成int。
 
+//参考： https://jsoniter.com/go-tips.cn.html#:~:text=%E5%A6%82%E6%9E%9C%E4%BD%A0%E4%BD%BF%E7%94%A8%E7%9A%84%E6%98%AFjsoniter%EF%BC%8C%E5%8F%AF%E4%BB%A5%E5%90%AF%E5%8A%A8%E6%A8%A1%E7%B3%8A%E6%A8%A1%E5%BC%8F%E6%9D%A5%E6%94%AF%E6%8C%81%20PHP%20%E4%BC%A0%E9%80%92%E8%BF%87%E6%9D%A5%E7%9A%84%20JSON%E3%80%82%20%E8%BF%99%E6%A0%B7%E5%B0%B1%E5%8F%AF%E4%BB%A5%E6%94%AF%E6%8C%81%E4%BA%86%20golang%20%E9%BB%98%E8%AE%A4%E4%BC%9A%E6%8A%8A%20time.Time,%E7%94%A8%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%96%B9%E5%BC%8F%E5%BA%8F%E5%88%97%E5%8C%96%E3%80%82%20%E5%A6%82%E6%9E%9C%E6%88%91%E4%BB%AC%E6%83%B3%E7%94%A8%E5%85%B6%E4%BB%96%E6%96%B9%E5%BC%8F%E8%A1%A8%E7%A4%BA%20time.Time%EF%BC%8C%E9%9C%80%E8%A6%81%E8%87%AA%E5%AE%9A%E4%B9%89%E7%B1%BB%E5%9E%8B%E5%B9%B6%E5%AE%9A%E4%B9%89%20MarshalJSON%E3%80%82%20%E5%BA%8F%E5%88%97%E5%8C%96%E7%9A%84%E6%97%B6%E5%80%99%E4%BC%9A%E8%B0%83%E7%94%A8%20MarshalJSON%20jsoniter%20%E8%83%BD%E5%A4%9F%E5%AF%B9%E4%B8%8D%E6%98%AF%E4%BD%A0%E5%AE%9A%E4%B9%89%E7%9A%84type%E8%87%AA%E5%AE%9A%E4%B9%89JSON%E7%BC%96%E8%A7%A3%E7%A0%81%E6%96%B9%E5%BC%8F%E3%80%82
+import "github.com/json-iterator/go/extra"
+extra.RegisterFuzzyDecoders() // 容忍字符串和数字互转
+extra.RegisterFuzzyDecoders()//容忍空数组作为对象
 */
-// 创建配置
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+// Json 创建配置
+var Json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // DictCodec 1 数据字典转换
 type DictCodec struct {

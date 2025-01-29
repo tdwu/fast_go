@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/tdwu/fast_go/fast_base"
 	"go.uber.org/zap/zapcore"
 	"net"
@@ -292,7 +291,7 @@ func timeFormat(t time.Time) string {
 }
 
 // json 创建 jsoniter 配置
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+// var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // JSONIterRenderer 定义 jsoniter 的渲染器
 type JSONIterRenderer struct {
@@ -304,7 +303,7 @@ func (r JSONIterRenderer) Render(w http.ResponseWriter) error {
 	// 设置 Content-Type
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// 使用 jsoniter 序列化数据并写入 ResponseWriter
-	return json.NewEncoder(w).Encode(r.Data)
+	return fast_base.Json.NewEncoder(w).Encode(r.Data)
 }
 
 // WriteContentType 方法设置内容类型

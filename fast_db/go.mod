@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.17.1
-	github.com/tdwu/fast_go/fast_base v0.3.5
+	github.com/tdwu/fast_go/fast_base v0.3.6
 	go.uber.org/zap v1.27.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.12

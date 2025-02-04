@@ -9,8 +9,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/json-iterator/go v1.1.12
-	github.com/tdwu/fast_go/fast_base v0.3.5
-	github.com/tdwu/fast_go/fast_utils v0.3.5
+	github.com/tdwu/fast_go/fast_base v0.3.6
+	github.com/tdwu/fast_go/fast_utils v0.3.6
 	go.uber.org/zap v1.27.0
 	golang.org/x/time v0.8.0
 )

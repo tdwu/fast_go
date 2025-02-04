@@ -46,13 +46,32 @@ func LoadLogger() error {
 // getEncoder 编码器(如何写入日志)
 func getEncoder(conf LogConfig) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder   // log 时间格式 例如: 2021-09-11t20:05:54.852+0800
+	//encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder   // log 时间格式 例如: 2021-09-11t20:05:54.852+0800
+	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder // 输出level序列化为全大写字符串，如 INFO DEBUG ERROR
 	//encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
 	//encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	if conf.Format == "json" {
 		return zapcore.NewJSONEncoder(encoderConfig) // 以json格式写入
 	}
+
+	/*
+		encoderConfig := zapcore.EncoderConfig{
+			TimeKey:        "time",
+			LevelKey:       "level",
+			NameKey:        "name",
+			CallerKey:      "line",
+			MessageKey:     "msg",
+			FunctionKey:    "func",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,//
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000"),
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   zapcore.FullCallerEncoder,
+			EncodeName:     zapcore.FullNameEncoder,
+		}
+	*/
 	return zapcore.NewConsoleEncoder(encoderConfig) // 以logfmt格式写入
 }
 
@@ -78,6 +97,7 @@ func getLogWriter(conf LogConfig) (zapcore.WriteSyncer, error) {
 		MaxSize:    conf.FileMaxSize,                        // 单个日志文件最大多少 mb
 		MaxBackups: conf.FileMaxBackups,                     // 日志备份数量
 		MaxAge:     conf.MaxAge,                             // 日志最长保留时间
+		LocalTime:  true,                                    // 本地时区
 		Compress:   conf.Compress,                           // 是否压缩日志
 	}
 	if conf.Stdout {

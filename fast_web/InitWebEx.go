@@ -30,7 +30,7 @@ func (l LogWriter) Write(p []byte) (n int, err error) {
 		message = string(p)
 	}
 
-	fast_base.PrintfWithCaller(l.level, findGinCaller(4), message)
+	fast_base.PrintfWithCaller(l.level, findGinCaller(4), "%s", message)
 
 	return 0, nil
 }
@@ -103,7 +103,7 @@ func ginLogger() gin.HandlerFunc {
 
 			message := formatMessage(param)
 
-			fast_base.PrintfWithCaller(level, findGinCaller(0), message)
+			fast_base.PrintfWithCaller(level, findGinCaller(0), "%s", message)
 		}
 	}
 }

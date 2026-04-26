@@ -136,7 +136,7 @@ func (c *Server) LoadRouter(cg interface{}) *Server {
 	value := reflect.ValueOf(cg)
 	numOfMethod := value.Type().NumMethod()
 	//PrintfLog(logLevel, "[GIN-"+gin.Mode()+"] LoadRouter: "+value.Type().String())
-	fast_base.PrintfWithCaller(fast_base.LoggerLevel, findGinCaller(1), "[GIN-"+gin.Mode()+"] LoadRouter: "+value.Type().String())
+	fast_base.PrintfWithCaller(fast_base.LoggerLevel, findGinCaller(1), "%s", "[GIN-"+gin.Mode()+"] LoadRouter: "+value.Type().String())
 
 	for i := 0; i < numOfMethod; i++ {
 		tm := value.Type().Method(i)

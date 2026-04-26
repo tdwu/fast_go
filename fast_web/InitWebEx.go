@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/tdwu/fast_go/fast_base"
-	"go.uber.org/zap/zapcore"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +12,10 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/tdwu/fast_go/fast_base"
+	"go.uber.org/zap/zapcore"
 )
 
 type LogWriter struct {
@@ -81,7 +82,7 @@ func ginLogger() gin.HandlerFunc {
 
 			// Stop timer
 			param.TimeStamp = start
-			param.Latency = time.Now().Sub(start)
+			param.Latency = time.Since(start)
 
 			param.ClientIP = c.ClientIP()
 			param.Method = c.Request.Method

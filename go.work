@@ -8,7 +8,3 @@ use (
 	fast_wgen
 )
 
-// 本地联调始终使用工作区源码；发布校验需设置 GOWORK=off。
-replace github.com/tdwu/fast_go/fast_base v0.7.0 => ./fast_base
-
-replace github.com/tdwu/fast_go/fast_utils v0.6.1 => ./fast_utils

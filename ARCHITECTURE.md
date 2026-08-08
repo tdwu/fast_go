@@ -46,4 +46,4 @@ router.POST("/users", fast_web.JSONHandler(CreateUser))
 
 Git tag 必须使用子模块前缀，例如 `fast_web/v0.7.0`、`fast_base/v0.7.0`。补丁修复用 PATCH，新功能且兼容用 MINOR；删除导出 API、改变 JSON 字段/HTTP 语义或升级到 `v2` 路径时才用 MAJOR。当前最新 tag 为 `v0.6.0`，建议本次兼容性改造发布为 `fast_base/v0.7.0`、`fast_web/v0.7.0`，并在 `CHANGELOG.md` 记录迁移期和废弃项。
 
-发布顺序始终从依赖图底部向上：先 `fast_utils/v0.6.1` 和 `fast_base/v0.7.0`，再 `fast_db/v0.6.1` / `fast_web/v0.7.0`，最后 `fast_wgen/v0.6.1`。本次上层模块已经要求尚未发布的版本，因此必须先合并并打底层 tag；在第一步完成前，`GOWORK=off` 验证上层模块会按预期找不到该版本。未使用新 API 的上层模块无需为了“统一版本号”而重新发布。
+发布顺序始终从依赖图底部向上：先 `fast_utils/v0.7.0` 和 `fast_base/v0.7.0`，再 `fast_db/v0.7.0` / `fast_web/v0.7.0`，最后 `fast_wgen/v0.7.0`。本次上层模块已经要求尚未发布的版本，因此必须先合并并打底层 tag；在第一步完成前，`GOWORK=off` 验证上层模块会按预期找不到该版本。未使用新 API 的上层模块无需为了“统一版本号”而重新发布。

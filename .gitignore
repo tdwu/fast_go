@@ -31,8 +31,6 @@ HELP.md
 /bin/
 /logs/
 /upload_store/
-go.work.sum
-go.sum
 
 
 ### VS Code ###

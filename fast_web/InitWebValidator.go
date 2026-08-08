@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type ValidatorMessages map[string]string
@@ -18,6 +19,7 @@ type Validator interface {
 // 定义一个全局翻译器T
 var trans ut.Translator
 var Validate = validator.New()
+var validatorOnce sync.Once
 
 func InitTrans() (err error) {
 	zhT := zh.New()
@@ -65,23 +67,18 @@ func passwordValidation(fl validator.FieldLevel) bool {
 }
 
 func LoadValidator() {
-	InitTrans()
-	Validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		name := strings.SplitN(fld.Tag.Get("tag"), ",", 2)[0]
-		//if name == "" {
-		//	name = strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
-		//	if name == "-" {
-		//		//	return fld.Name
-		//	}
-		//}
-
-		return name
-	})
-	Validate.RegisterValidation("password", passwordValidation)
-	Validate.RegisterTranslation("password", trans, func(ut ut.Translator) error {
-		return ut.Add("password", "{0}复杂度太低!", true)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("password", fe.Field())
-		return t
+	validatorOnce.Do(func() {
+		_ = InitTrans()
+		Validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+			name := strings.SplitN(fld.Tag.Get("tag"), ",", 2)[0]
+			return name
+		})
+		_ = Validate.RegisterValidation("password", passwordValidation)
+		_ = Validate.RegisterTranslation("password", trans, func(ut ut.Translator) error {
+			return ut.Add("password", "{0}复杂度太低!", true)
+		}, func(ut ut.Translator, fe validator.FieldError) string {
+			t, _ := ut.T("password", fe.Field())
+			return t
+		})
 	})
 }

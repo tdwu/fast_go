@@ -21,8 +21,19 @@ import "github.com/json-iterator/go/extra"
 extra.RegisterFuzzyDecoders() // 容忍字符串和数字互转
 extra.RegisterFuzzyDecoders()//容忍空数组作为对象
 */
-// Json 创建配置
-var Json = jsoniter.ConfigCompatibleWithStandardLibrary
+// Json 是框架唯一的 JSON API。扩展只注册在这个实例上，避免污染应用中
+// 使用 jsoniter 默认 API 的其他组件。
+var Json = newJSONAPI()
+
+func newJSONAPI() jsoniter.API {
+	api := jsoniter.Config{
+		EscapeHTML:             true,
+		SortMapKeys:            true,
+		ValidateJsonRawMessage: true,
+	}.Froze()
+	api.RegisterExtension(&JsonExtension{})
+	return api
+}
 
 // DictCodec 1 数据字典转换
 type DictCodec struct {
@@ -121,86 +132,76 @@ func (ext *JsonExtension) CreateEncoder(typ reflect2.Type) jsoniter.ValEncoder {
 	return nil
 }
 
-// CreateDecoder 反序列化
+// CreateDecoder 兼容历史客户端把数字放在字符串中的请求。旧实现把所有
+// int/int32/float32 都按 int64/float64 写入，可能越界写内存；这里按实际
+// 目标类型写入。
 func (ext *JsonExtension) CreateDecoder(typ reflect2.Type) jsoniter.ValDecoder {
 	switch typ.Kind() {
-	case reflect.String: // 目标类型，如果是字符串。输入数字也能转换成功
-		return &GlobalWrapCodec{
-			decodeFunc: func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-				switch iter.WhatIsNext() {
-				case jsoniter.NumberValue:
-					// 如果是数字类型，转换为字符串
-					number := iter.ReadNumber()
-					str := number.String()
-					*(*string)(ptr) = str
-				case jsoniter.StringValue:
-					// 如果是字符串，直接读取
-					*(*string)(ptr) = iter.ReadString()
-				default:
-					iter.Read()
-				}
-			},
-		}
-	case reflect.Int, reflect.Int32, reflect.Int64: // 目标是int。如果是字符串，也能转换。
-		return &GlobalWrapCodec{
-			decodeFunc: func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-				switch iter.WhatIsNext() {
-				case jsoniter.StringValue: // 目标是int。如果是字符串，也能转换。
-					// 读取字符串并转换为 int64
-					strVal := iter.ReadString()
-
-					if strVal == "" {
-						return
-					}
-
-					intVal, err := strconv.ParseInt(strVal, 10, 64)
-					if err != nil {
-						iter.ReportError("NumericCompatibleDecoder", "invalid int format")
-						return
-					}
-					*(*int64)(ptr) = intVal
-				case jsoniter.NumberValue:
-					// 直接读取数字并存储为 int64
-					*(*int64)(ptr) = iter.ReadInt64()
-				default:
-					iter.Read()
-
-				}
-			},
-		}
-	case reflect.Float32, reflect.Float64: // 目标是小数。如果是字符串，也能转换。
-		return &GlobalWrapCodec{
-			decodeFunc: func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-				switch iter.WhatIsNext() {
-				case jsoniter.StringValue:
-					// 读取字符串并转换为 float64
-					strVal := iter.ReadString()
-					floatVal, err := strconv.ParseFloat(strVal, 64)
-					if strVal == "" {
-						return
-					}
-
-					if err != nil {
-						iter.ReportError("NumericCompatibleDecoder", "invalid float format")
-						return
-					}
-					*(*float64)(ptr) = floatVal
-				case jsoniter.NumberValue:
-					// 直接读取数字并存储为 float64
-					*(*float64)(ptr) = iter.ReadFloat64()
-				default:
-					var v float64
-					*(*float64)(ptr) = v
-
-					// 忽略掉
-					//	iter.ReportError("NumericCompatibleDecoder", "unexpected value type")
-				}
-			},
-		}
-
+	case reflect.String:
+		return compatibleDecoder(func(ptr unsafe.Pointer, value string) error { *(*string)(ptr) = value; return nil })
+	case reflect.Int:
+		return integerDecoder(strconv.IntSize, func(ptr unsafe.Pointer, value int64) { *(*int)(ptr) = int(value) })
+	case reflect.Int8:
+		return integerDecoder(8, func(ptr unsafe.Pointer, value int64) { *(*int8)(ptr) = int8(value) })
+	case reflect.Int16:
+		return integerDecoder(16, func(ptr unsafe.Pointer, value int64) { *(*int16)(ptr) = int16(value) })
+	case reflect.Int32:
+		return integerDecoder(32, func(ptr unsafe.Pointer, value int64) { *(*int32)(ptr) = int32(value) })
+	case reflect.Int64:
+		return integerDecoder(64, func(ptr unsafe.Pointer, value int64) { *(*int64)(ptr) = value })
+	case reflect.Float32:
+		return floatDecoder(func(ptr unsafe.Pointer, value float64) { *(*float32)(ptr) = float32(value) })
+	case reflect.Float64:
+		return floatDecoder(func(ptr unsafe.Pointer, value float64) { *(*float64)(ptr) = value })
 	}
-
 	return nil
+}
+
+func compatibleDecoder(set func(unsafe.Pointer, string) error) *GlobalWrapCodec {
+	return &GlobalWrapCodec{decodeFunc: func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+		var value string
+		switch iter.WhatIsNext() {
+		case jsoniter.NumberValue:
+			value = iter.ReadNumber().String()
+		case jsoniter.StringValue:
+			value = iter.ReadString()
+		case jsoniter.NilValue:
+			iter.ReadNil()
+			return
+		default:
+			iter.ReportError("CompatibleDecoder", "expected string or number")
+			return
+		}
+		if err := set(ptr, value); err != nil {
+			iter.ReportError("CompatibleDecoder", err.Error())
+		}
+	}}
+}
+
+func integerDecoder(bitSize int, set func(unsafe.Pointer, int64)) *GlobalWrapCodec {
+	return compatibleDecoder(func(ptr unsafe.Pointer, value string) error {
+		if value == "" {
+			return nil
+		}
+		parsed, err := strconv.ParseInt(value, 10, bitSize)
+		if err == nil {
+			set(ptr, parsed)
+		}
+		return err
+	})
+}
+
+func floatDecoder(set func(unsafe.Pointer, float64)) *GlobalWrapCodec {
+	return compatibleDecoder(func(ptr unsafe.Pointer, value string) error {
+		if value == "" {
+			return nil
+		}
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err == nil {
+			set(ptr, parsed)
+		}
+		return err
+	})
 }
 
 // UpdateStructDescriptor 根据注解中的描述符，启用对应的Codec
@@ -209,10 +210,10 @@ func (ext *JsonExtension) UpdateStructDescriptor(structDescriptor *jsoniter.Stru
 		// 查找含有 "jsonDict" 标签的字段
 		if dictTag := binding.Field.Tag().Get("jsonDict"); dictTag != "" {
 
-			jsonName := binding.Field.Tag().Get("json")
+			jsonName := jsonFieldName(binding)
 			if jsonName == "-" {
 				//忽略
-				return
+				continue
 			}
 
 			if jsonName == "" {
@@ -237,10 +238,10 @@ func (ext *JsonExtension) UpdateStructDescriptor(structDescriptor *jsoniter.Stru
 		}
 
 		if sqlTag := binding.Field.Tag().Get("jsonSql"); sqlTag != "" {
-			jsonName := binding.Field.Tag().Get("json")
+			jsonName := jsonFieldName(binding)
 			if jsonName == "-" {
 				//忽略
-				return
+				continue
 			}
 
 			jn := binding.Field.Tag().Get("jsonName")
@@ -273,25 +274,36 @@ func (ext *JsonExtension) UpdateStructDescriptor(structDescriptor *jsoniter.Stru
 	}
 }
 
+func jsonFieldName(binding *jsoniter.Binding) string {
+	return strings.Split(binding.Field.Tag().Get("json"), ",")[0]
+}
+
 func getValueMethod(binding *jsoniter.Binding) GetOriginalValue {
 	fieldType := binding.Field.Type().Type1()
 
 	switch fieldType.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int:
 		return func(ptr unsafe.Pointer) string {
-			return strconv.Itoa(*(*int)(ptr))
+			return strconv.FormatInt(int64(*(*int)(ptr)), 10)
+		}
+	case reflect.Int8:
+		return func(ptr unsafe.Pointer) string { return strconv.FormatInt(int64(*(*int8)(ptr)), 10) }
+	case reflect.Int16:
+		return func(ptr unsafe.Pointer) string { return strconv.FormatInt(int64(*(*int16)(ptr)), 10) }
+	case reflect.Int32:
+		return func(ptr unsafe.Pointer) string { return strconv.FormatInt(int64(*(*int32)(ptr)), 10) }
+	case reflect.Int64:
+		return func(ptr unsafe.Pointer) string { return strconv.FormatInt(*(*int64)(ptr), 10) }
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return func(ptr unsafe.Pointer) string {
+			return strconv.FormatUint(reflect.NewAt(fieldType, ptr).Elem().Uint(), 10)
 		}
 	case reflect.String:
 		return func(ptr unsafe.Pointer) string {
 			return *(*string)(ptr)
 		}
 	default:
-		return func(ptr unsafe.Pointer) string {
-			return *(*string)(ptr)
-		}
-	}
-	return func(ptr unsafe.Pointer) string {
-		return *(*string)(ptr)
+		return func(unsafe.Pointer) string { return "" }
 	}
 }
 

@@ -2,7 +2,6 @@ package fast_base
 
 import (
 	"flag"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/spf13/viper"
 	"os"
 	"path"
@@ -44,8 +43,6 @@ func LoadConfig() (err error) {
 
 	ConfigAll = allInOne
 
-	// 设置json扩展器
-	jsoniter.RegisterExtension(&JsonExtension{})
 	return
 }
 

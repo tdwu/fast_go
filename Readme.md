@@ -1,3 +1,7 @@
+# fast_go
+
+项目结构、类型化 Web 接口迁移及多模块发布策略见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
 # 创建路由
 
 ~~~
@@ -26,7 +30,7 @@ D:\ws_web\psp\backend\src\psp> swag init -d ./ -g ./PspApplication.go --ot json 
 
 ~~~dockerfile
  # Compile stage
-FROM golang:1.19.7 AS build-env
+FROM golang:1.26.5 AS build-env
 
 ENV GO111MODULE=on \
     CGO_ENABLE=0 \
@@ -46,7 +50,7 @@ WORKDIR /go_ws/src/psp
 RUN go build -o psp_server PspApplication.go LoadRouter.go
 
 # Final stage
-FROM debian:buster
+FROM debian:bookworm-slim
 
 EXPOSE 38000
 

@@ -196,12 +196,23 @@ func GenHandlerFunc(vm reflect.Value) gin.HandlerFunc {
 }
 
 func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
+	// 兼容旧版 gr 生成代码。函数签名只在路由注册时解析一次；推荐的新代码
+	// 使用 JSONHandler/JSONHandlerWithToken，完全不走反射调用。
+	handlerType := vm.Type()
+	inputTypes := make([]reflect.Type, handlerType.NumIn())
+	for i := range inputTypes {
+		inputTypes[i] = handlerType.In(i)
+	}
+	outputTypes := make([]reflect.Type, handlerType.NumOut())
+	for i := range outputTypes {
+		outputTypes[i] = handlerType.Out(i)
+	}
+
 	return func(context *gin.Context) {
-		args := make([]reflect.Value, vm.Type().NumIn())
+		args := make([]reflect.Value, len(inputTypes))
 		mCopy := true
 		// 【1】根据接口参数类型，封装处理参数+校验
-		for i := 0; i < vm.Type().NumIn(); i++ {
-			p := vm.Type().In(i)
+		for i, p := range inputTypes {
 			if strings.HasSuffix(p.String(), "gin.Context") {
 				args[i] = reflect.ValueOf(context)
 			} else if p == reflect.TypeOf(SecToken{}) {
@@ -290,6 +301,9 @@ func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
 					args[i] = reflect.ValueOf(v)
 				}
 
+			} else {
+				JSONIter(context, http.StatusInternalServerError, fast_base.Error(500, "不支持的接口参数类型: "+p.String()))
+				return
 			}
 		}
 
@@ -297,27 +311,27 @@ func HandlerFuncWrapper(vm reflect.Value) gin.HandlerFunc {
 		re := vm.Call(args)
 
 		//【3】结果处理
-		if vm.Type().NumOut() == 0 {
+		if len(outputTypes) == 0 {
 			// 无返回值，直接标记成功
 			JSONIter(context, http.StatusOK, fast_base.Success("成功"))
 		} else {
 			// 有返回值，识别数据和err
-			v := re[vm.Type().NumOut()-1]              // 取最后一个返回值，如果有err则放最后一个
-			r := vm.Type().Out(vm.Type().NumOut() - 1) // 取最后一个返回值类型
+			v := re[len(outputTypes)-1]          // 取最后一个返回值，如果有err则放最后一个
+			r := outputTypes[len(outputTypes)-1] // 取最后一个返回值类型
 			if r.String() == "error" {
 				if !v.IsNil() {
 					err := v.Interface().(error)
 					// 有错误信息，则抛返回错误
 					JSONIter(context, http.StatusOK, fast_base.Error(500, err.Error()))
 					return
-				} else if vm.Type().NumOut()-2 < 0 {
+				} else if len(outputTypes)-2 < 0 {
 					// 无err,并且前面也无返回值，则直接返回成功
 					JSONIter(context, http.StatusOK, fast_base.Success("成功"))
 					return
 				} else {
 					// 无err,但前面有返回值，则取出前面一个作为结果数据
-					v = re[vm.Type().NumOut()-2]
-					r = vm.Type().Out(vm.Type().NumOut() - 2)
+					v = re[len(outputTypes)-2]
+					r = outputTypes[len(outputTypes)-2]
 				}
 			}
 

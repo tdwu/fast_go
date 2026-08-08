@@ -7,6 +7,7 @@ import (
 	"github.com/swaggo/swag"
 	"go/ast"
 	"go/build"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"os"
@@ -62,16 +63,6 @@ func MakeRouter(searchDirs []string, outputFile string, w string) {
 
 	fmt.Println("【阶段3】-----------------------")
 	fmt.Println("【阶段3】生成文件：" + outputFile)
-	os.Remove(outputFile)
-	// 新建文件
-	file, err := os.Create(outputFile)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-
-	file.WriteString("package main\n\n")
 	headerMap := map[string]string{}
 	header := "\t\"github.com/gin-gonic/gin\"\n\t\"reflect\"\n\t\"github.com/tdwu/fast_go/fast_web\"\n"
 	body := ""
@@ -96,7 +87,13 @@ func MakeRouter(searchDirs []string, outputFile string, w string) {
 	}
 
 	// 生成limit代码
-	for _, limit := range limits {
+	limitNames := make([]string, 0, len(limits))
+	for name := range limits {
+		limitNames = append(limitNames, name)
+	}
+	sort.Strings(limitNames)
+	for _, name := range limitNames {
+		limit := limits[name]
 		body = body + fmt.Sprintf("\t%s := fast_web.RateLimitMiddleware(%s, %s)\n", limit.Name, limit.Num, limit.Cap)
 	}
 
@@ -130,8 +127,36 @@ func MakeRouter(searchDirs []string, outputFile string, w string) {
 		}
 
 	}
-	file.WriteString("import (\n" + header + ")\n\n")
-	file.WriteString("func LoadRouters(gin *gin.Engine) {\n" + body + "}\n")
+	source := "package main\n\nimport (\n" + header + ")\n\nfunc LoadRouters(gin *gin.Engine) {\n" + body + "}\n"
+	formatted, err := format.Source([]byte(source))
+	if err != nil {
+		fmt.Printf("生成的路由代码格式化失败: %v\n", err)
+		return
+	}
+	if err := writeGeneratedFile(outputFile, formatted); err != nil {
+		fmt.Printf("写入路由文件失败: %v\n", err)
+	}
+}
+
+func writeGeneratedFile(outputFile string, content []byte) error {
+	outputDir := filepath.Dir(outputFile)
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return err
+	}
+	temporary, err := os.CreateTemp(outputDir, ".router-*.go")
+	if err != nil {
+		return err
+	}
+	temporaryName := temporary.Name()
+	defer os.Remove(temporaryName)
+	if _, err := temporary.Write(content); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryName, outputFile)
 }
 
 func IfStr(cond bool, a, b string) string {
@@ -215,6 +240,9 @@ func getParamFromMain() (string, string, string) {
 					genDir, genOutput, genWrapper := "", "", ""
 					for _, comment := range astDeclaration.Doc.List {
 						commentLine := strings.TrimSpace(strings.TrimLeft(comment.Text, "/"))
+						if commentLine == "" {
+							continue
+						}
 						attribute := strings.Fields(commentLine)[0]
 						lineRemainder := strings.TrimSpace(commentLine[len(attribute):])
 						lowerAttribute := strings.ToLower(attribute)
@@ -399,6 +427,9 @@ func (this *Collector) ParseRouterAPIInfo(fileName string, packagePath string, a
 					continue
 				}
 				commentLine := strings.TrimSpace(strings.TrimLeft(comment.Text, "/"))
+				if commentLine == "" {
+					continue
+				}
 				attribute := strings.Fields(commentLine)[0]
 				lineRemainder := strings.TrimSpace(commentLine[len(attribute):])
 				lowerAttribute := strings.ToLower(attribute)
